@@ -1,0 +1,67 @@
+Resources:
+  Ec2Instance1:
+    Type: 'AWS::EC2::Instance'
+    Properties:
+      InstanceType: t2.micro
+      ImageId: ami-76144b0a #This is Amazon RHEL image on Singapore Region
+      Tags:
+        - Key: Name
+          Value: DBS Mkt Place Car 1
+      SecurityGroups:
+        - !Ref MySecurityGroup
+      MyElasticLoadBalancer:
+        - !Ref ElasticLoadBalancer
+  Ec2Instance2:
+    Type: 'AWS::EC2::Instance'
+    Properties:
+      InstanceType: t2.micro
+      ImageId: ami-76144b0a #This is Amazon RHEL image on Singapore Region
+      Tags:
+        - Key: Name
+          Value: DBS Mkt Place Car 2
+      SecurityGroups:
+        - !Ref MySecurityGroup
+      MyElasticLoadBalancer:
+        - !Ref ElasticLoadBalancer
+  MySecurityGroup:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupDescription: Enable SSH access via port 22
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: '22'
+          ToPort: '22'
+          CidrIp: 0.0.0.0/0
+  MyEip1:
+    Type: 'AWS::EC2::EIP'
+  IPAssoc1:
+    Type: 'AWS::EC2::EIPAssociation'
+    Properties:
+      InstanceId:
+        Ref: Ec2Instance1
+      EIP:
+        Ref: MyEip1
+  MyEip2:
+    Type: 'AWS::EC2::EIP'
+  IPAssoc2:
+    Type: 'AWS::EC2::EIPAssociation'
+    Properties:
+      InstanceId:
+        Ref: Ec2Instance2
+      EIP:
+        Ref: MyEip2
+  ElasticLoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      AvailabilityZones: !GetAZs ''
+      CrossZone: 'true'
+      Listeners:
+      - LoadBalancerPort: '80'
+        InstancePort: '80'
+        Protocol: HTTP
+      HealthCheck:
+        Target: HTTP:80/
+        HealthyThreshold: '3'
+        UnhealthyThreshold: '5'
+        Interval: '30'
+        Timeout: '5'
