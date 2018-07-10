@@ -1,67 +1,108 @@
+Parameters:
+ EnvironmentName:
+  Description: An environment name that will be prefixed to resource names
+  Type: String
+  Default: ThisIsMyVidarbhElb
+ VPC:
+  Type: AWS::EC2::VPC::Id
+  Description: Choose which VPC the Application Load Balancer should be deployed to
+  Default: vpc-2a38114e
+ Subnets:
+  Description: Choose which subnets the Application Load Balancer should be deployed to
+  Type: List<AWS::EC2::Subnet::Id>
+  Default: "subnet-878975e0,subnet-19db3b50"
+ SecurityGroup:
+  Description: Select the Security Group to apply to the Application Load Balancer
+  Type: AWS::EC2::SecurityGroup::Id
+  Default: sg-7006ec08
+  
 Resources:
-  Ec2Instance1:
-    Type: 'AWS::EC2::Instance'
-    Properties:
-      InstanceType: t2.micro
-      ImageId: ami-76144b0a #This is Amazon RHEL image on Singapore Region
-      Tags:
-        - Key: Name
-          Value: DBS Mkt Place Car 1
-      SecurityGroups:
-        - !Ref MySecurityGroup
-      MyElasticLoadBalancer:
-        - !Ref ElasticLoadBalancer
-  Ec2Instance2:
-    Type: 'AWS::EC2::Instance'
-    Properties:
-      InstanceType: t2.micro
-      ImageId: ami-76144b0a #This is Amazon RHEL image on Singapore Region
-      Tags:
-        - Key: Name
-          Value: DBS Mkt Place Car 2
-      SecurityGroups:
-        - !Ref MySecurityGroup
-      MyElasticLoadBalancer:
-        - !Ref ElasticLoadBalancer
-  MySecurityGroup:
-    Type: 'AWS::EC2::SecurityGroup'
-    Properties:
-      GroupDescription: Enable SSH access via port 22
-      SecurityGroupIngress:
-        - IpProtocol: tcp
-          FromPort: '22'
-          ToPort: '22'
-          CidrIp: 0.0.0.0/0
-  MyEip1:
-    Type: 'AWS::EC2::EIP'
-  IPAssoc1:
-    Type: 'AWS::EC2::EIPAssociation'
-    Properties:
-      InstanceId:
+ LoadBalancer:
+  Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+  Properties:
+   Name: !Ref EnvironmentName
+   Subnets: !Ref Subnets
+   SecurityGroups: 
+    - !Ref SecurityGroup
+   Tags: 
+    - Key: Name
+      Value: !Ref EnvironmentName
+
+ LoadBalancerListener:
+  Type: AWS::ElasticLoadBalancingV2::Listener
+  Properties:
+   LoadBalancerArn: !Ref LoadBalancer
+   Port: 80
+   Protocol: HTTP 
+   DefaultActions: 
+    - Type: forward
+      TargetGroupArn: !Ref DefaultTargetGroup
+
+  # We define a default target group here, as this is a mandatory Parameters
+  # when creating an Application Load Balancer Listener. This is not used, instead
+  # a target group is created per-service in each service template (../services/*)
+ DefaultTargetGroup:
+  Type: AWS::ElasticLoadBalancingV2::TargetGroup
+  Properties:
+   Name: MyTargets
+   VpcId: !Ref VPC
+   Port: 80
+   Protocol: HTTP
+   TargetGroupAttributes:
+    - Key: deregistration_delay.timeout_seconds
+      Value: '20'
+   Targets:
+    - Id:
         Ref: Ec2Instance1
-      EIP:
-        Ref: MyEip1
-  MyEip2:
-    Type: 'AWS::EC2::EIP'
-  IPAssoc2:
-    Type: 'AWS::EC2::EIPAssociation'
-    Properties:
-      InstanceId:
+      Port: 80
+    - Id:
         Ref: Ec2Instance2
-      EIP:
-        Ref: MyEip2
-  ElasticLoadBalancer:
-    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
-    Properties:
-      AvailabilityZones: !GetAZs ''
-      CrossZone: 'true'
-      Listeners:
-      - LoadBalancerPort: '80'
-        InstancePort: '80'
-        Protocol: HTTP
-      HealthCheck:
-        Target: HTTP:80/
-        HealthyThreshold: '3'
-        UnhealthyThreshold: '5'
-        Interval: '30'
-        Timeout: '5'
+      Port: 80
+ 
+ Ec2Instance1:
+  Type: 'AWS::EC2::Instance'
+  Properties:
+   InstanceType: t2.micro
+   ImageId: ami-76144b0a #This is Amazon RHEL image on Singapore Region
+   Tags:
+    - Key: Name
+      Value: DBS Mkt Place Car 1
+   SecurityGroups:
+    - !Ref MySecurityGroup 
+ Ec2Instance2:
+  Type: 'AWS::EC2::Instance'
+  Properties:
+   InstanceType: t2.micro
+   ImageId: ami-76144b0a #This is Amazon RHEL image on Singapore Region
+   Tags:
+    - Key: Name
+      Value: DBS Mkt Place Car 2
+   SecurityGroups:
+    - !Ref MySecurityGroup
+ MySecurityGroup:
+  Type: 'AWS::EC2::SecurityGroup'
+  Properties:
+   GroupDescription: Enable SSH access via port 22
+   SecurityGroupIngress:
+    - IpProtocol: tcp
+      FromPort: '22'
+      ToPort: '22'
+      CidrIp: 0.0.0.0/0
+ MyEip1:
+  Type: 'AWS::EC2::EIP'
+ IPAssoc1:
+  Type: 'AWS::EC2::EIPAssociation'
+  Properties:
+   InstanceId:
+    Ref: Ec2Instance1
+   EIP:
+    Ref: MyEip1
+ MyEip2:
+  Type: 'AWS::EC2::EIP'
+ IPAssoc2:
+  Type: 'AWS::EC2::EIPAssociation'
+  Properties:
+   InstanceId:
+    Ref: Ec2Instance2
+   EIP:
+    Ref: MyEip2
