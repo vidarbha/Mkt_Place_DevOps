@@ -1,0 +1,230 @@
+#This CloudFormation Template is dedicated for DBS Mkt Place Properties
+AWSTemplateFormatVersion: '2010-09-09'
+Resources:
+ MktPlaceVPC:
+  Type: AWS::EC2::VPC
+  Properties:
+   CidrBlock: 10.0.0.0/16
+   #EnableDnsSupport: 'yes'
+   #EnableDnsHostnames: 'yes'
+   #InstanceTenancy: dedicated
+   Tags:
+    - Key: Application
+      Value: 
+       Ref: AWS::StackId
+    - Key: Name
+      Value: Mkt_PlaceVPC
+ 
+ InternetGateway:
+  Type: AWS::EC2::InternetGateway
+  Properties:
+   Tags:
+    - Key: Application
+      Value:
+       Ref: AWS::StackId
+    - Key: Name
+      Value: Mkt_PlaceIGW
+ 
+ AttachGateway:
+  Type: AWS::EC2::VPCGatewayAttachment
+  Properties:
+   VpcId: !Ref MktPlaceVPC
+   InternetGatewayId: !Ref InternetGateway
+
+ PublicSubnet1:
+  Type: AWS::EC2::Subnet
+  Properties:
+   VpcId: !Ref MktPlaceVPC
+   CidrBlock: 10.0.1.0/24
+   Tags:
+    - Key: Application
+      Value:
+       Ref: AWS::StackId
+    - Key: Name
+      Value: Mkt_Place_PublicSubnet1
+
+ PrivateSubnet1:
+  Type: AWS::EC2::Subnet
+  Properties:
+   VpcId: !Ref MktPlaceVPC
+   CidrBlock: 10.0.2.0/24
+   Tags:
+    - Key: Application
+      Value:
+       Ref: AWS::StackId
+    - Key: Name
+      Value: Mkt_Place_PrivateSubnet1
+
+ PrivateSubnet2:
+  Type: AWS::EC2::Subnet
+  Properties:
+   VpcId: !Ref MktPlaceVPC
+   CidrBlock: 10.0.3.0/24
+   Tags:
+    - Key: Application
+      Value:
+       Ref: AWS::StackId
+    - Key: Name
+      Value: Mkt_Place_PrivateSubnet2	  
+ 
+ RouteTable1:
+  Type: AWS::EC2::RouteTable
+  Properties:
+   VpcId: !Ref MktPlaceVPC
+   Tags:
+    - Key: Application
+      Value:
+       Ref: AWS::StackId
+    - Key: Name
+      Value: Mkt_Place_Public_RT
+ 
+ RouteTable2:
+  Type: AWS::EC2::RouteTable
+  Properties:
+   VpcId: !Ref MktPlaceVPC
+   Tags:
+    - Key: Application
+      Value:
+       Ref: AWS::StackId
+    - Key: Name
+      Value: Mkt_Place_Private_RT
+ 
+ NATGateWay:
+  DependsOn: AttachGateway
+  Type: AWS::EC2::NatGateway
+  Properties:
+   AllocationId:
+    Fn::GetAtt:
+    - EIP
+    - AllocationId
+   SubnetId: !Ref PublicSubnet1
+   Tags:
+    - Key: Name
+      Value: Mkt_Place_NAT
+
+ EIP:
+  Type: AWS::EC2::EIP
+  Properties:
+   Domain: vpc
+
+ RouteToNAT:
+  Type: AWS::EC2::Route
+  Properties:
+    RouteTableId:
+      Ref: RouteTable2
+    DestinationCidrBlock: 0.0.0.0/0
+    NatGatewayId: !Ref NATGateWay
+
+ RouteToPublic:
+  Type: AWS::EC2::Route
+  DependsOn: AttachGateway
+  Properties:
+   RouteTableId: !Ref RouteTable1
+   DestinationCidrBlock: 0.0.0.0/0
+   GatewayId: !Ref InternetGateway
+
+ PublicSubnetRouteTableAssociation:
+  Type: AWS::EC2::SubnetRouteTableAssociation
+  Properties:
+   SubnetId: !Ref PublicSubnet1
+   RouteTableId: !Ref RouteTable1
+
+ PrivateSubnetRouteTableAssociation1:
+  Type: AWS::EC2::SubnetRouteTableAssociation
+  Properties:
+   SubnetId: !Ref PrivateSubnet1
+   RouteTableId: !Ref RouteTable2
+
+ PrivateSubnetRouteTableAssociation2:
+  Type: AWS::EC2::SubnetRouteTableAssociation
+  Properties:
+   SubnetId: !Ref PrivateSubnet2
+   RouteTableId: !Ref RouteTable2
+
+ Ec2Instance1:
+  Type: 'AWS::EC2::Instance'
+  Properties:
+   InstanceType: t2.micro
+   ImageId: ami-cf7f47ce #This is Amazon RHEL image on Singapore Region
+   Tags:
+    - Key: Name
+      Value: DBS Mkt Place Car 1
+   SecurityGroupIds:
+   - Ref: MktPlaceSecurityGroup
+   SubnetId:
+    Ref: PrivateSubnet1 
+ 
+ Ec2Instance2:
+  Type: 'AWS::EC2::Instance'
+  Properties:
+   InstanceType: t2.micro
+   ImageId: ami-cf7f47ce #This is Amazon RHEL image on Singapore Region
+   Tags:
+    - Key: Name
+      Value: DBS Mkt Place Car 1
+   SecurityGroupIds:
+   - Ref: MktPlaceSecurityGroup
+   SubnetId:
+    Ref: PrivateSubnet2
+
+ MktPlaceSecurityGroup:
+  Type: 'AWS::EC2::SecurityGroup'
+  Properties:
+   GroupDescription: Enable SSH access via port 22 and HTTP from port 80
+   Tags:
+    - Key: Name
+      Value: MktPlaceSecurityGroup
+   SecurityGroupIngress:
+    - IpProtocol: tcp
+      FromPort: 22
+      ToPort: 22
+      CidrIp: 0.0.0.0/0 
+    - IpProtocol: tcp
+      FromPort: 80
+      ToPort: 80
+      CidrIp: 0.0.0.0/0
+   VpcId: !Ref MktPlaceVPC
+
+ RedisParameterGroup:
+  Type: AWS::ElastiCache::ParameterGroup
+  Properties:
+   CacheParameterGroupFamily: redis3.2
+   Description: RedisParameterGroup
+
+ RedisSubnetGroup:
+  Type: AWS::ElastiCache::SubnetGroup
+  Properties:
+   Description: RedisSubnetGroup
+   SubnetIds:
+    - Ref: PrivateSubnet1
+    - Ref: PrivateSubnet2
+
+ RedisSecurityGroup:
+  Type: AWS::EC2::SecurityGroup
+  Properties:
+   GroupDescription: RedisSecurityGroup
+   Tags:
+    - Key: Name
+      Value: MktPlaceRedisSG
+   VpcId: !Ref MktPlaceVPC
+   SecurityGroupIngress:
+    - IpProtocol: tcp
+      FromPort: 6379
+      ToPort: 6379
+      CidrIp: 0.0.0.0/0
+
+ RedisReplicationGroup:
+  Type: AWS::ElastiCache::ReplicationGroup
+  Properties:
+   AutomaticFailoverEnabled: 'true'
+   CacheNodeType: 'cache.m3.medium'
+   CacheParameterGroupName:
+    Ref: RedisParameterGroup
+   CacheSubnetGroupName:
+    Ref: RedisSubnetGroup
+   Engine: redis
+   EngineVersion: 3.2.10
+   NumCacheClusters: '2'
+   ReplicationGroupDescription: RedisReplicationGroup
+   SecurityGroupIds:
+    - Ref: RedisSecurityGroup
