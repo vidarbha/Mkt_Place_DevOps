@@ -5,8 +5,8 @@ Resources:
   Type: AWS::EC2::VPC
   Properties:
    CidrBlock: 10.0.0.0/16
-   #EnableDnsSupport: 'yes'
-   EnableDnsHostnames: 'yes'
+   #EnableDnsSupport: 'true'
+   EnableDnsHostnames: 'true'
    #InstanceTenancy: dedicated
    Tags:
     - Key: Application
