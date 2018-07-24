@@ -1,0 +1,392 @@
+#This CloudFormation Template is dedicated for DBS Mkt Place Properties & Car
+AWSTemplateFormatVersion: '2010-09-09'
+Resources:
+ MktPlaceVPC:
+  Type: AWS::EC2::VPC
+  Properties:
+   CidrBlock: 10.0.0.0/16
+   #EnableDnsSupport: 'yes'
+   #EnableDnsHostnames: 'yes'
+   #InstanceTenancy: dedicated
+   Tags:
+    - Key: Application
+      Value: 
+       Ref: AWS::StackId
+    - Key: Name
+      Value: Mkt_PlaceVPC
+
+ InternetGateway:
+  Type: AWS::EC2::InternetGateway
+  Properties:
+   Tags:
+    - Key: Application
+      Value:
+       Ref: AWS::StackId
+    - Key: Name
+      Value: Mkt_PlaceIGW
+ 
+ AttachGateway:
+  Type: AWS::EC2::VPCGatewayAttachment
+  Properties:
+   VpcId: !Ref MktPlaceVPC
+   InternetGatewayId: !Ref InternetGateway
+
+ PublicSubnet1:
+  Type: AWS::EC2::Subnet
+  Properties:
+   VpcId: !Ref MktPlaceVPC
+   AvailabilityZone: ap-northeast-1a
+   CidrBlock: 10.0.1.0/24
+   Tags:
+    - Key: Application
+      Value:
+       Ref: AWS::StackId
+    - Key: Name
+      Value: Mkt_Place_PublicSubnet 1
+
+ PublicSubnet2:
+  Type: AWS::EC2::Subnet
+  Properties:
+   VpcId: !Ref MktPlaceVPC
+   AvailabilityZone: ap-northeast-1c
+   CidrBlock: 10.0.2.0/24
+   Tags:
+    - Key: Application
+      Value:
+       Ref: AWS::StackId
+    - Key: Name
+      Value: Mkt_Place_PublicSubnet 2
+
+ RouteTable:
+  Type: AWS::EC2::RouteTable
+  Properties:
+   VpcId: !Ref MktPlaceVPC
+   Tags:
+    - Key: Application
+      Value:
+       Ref: AWS::StackId
+    - Key: Name
+      Value: Mkt_Place_Public_RT
+
+ RouteToInternet:
+  Type: AWS::EC2::Route
+  DependsOn: AttachGateway
+  Properties:
+   RouteTableId: !Ref RouteTable
+   DestinationCidrBlock: 0.0.0.0/0
+   GatewayId: !Ref InternetGateway
+
+ PublicSubnetRouteTableAssociation1:
+  Type: AWS::EC2::SubnetRouteTableAssociation
+  Properties:
+   SubnetId: !Ref PublicSubnet1
+   RouteTableId: !Ref RouteTable
+
+ PublicSubnetRouteTableAssociation2:
+  Type: AWS::EC2::SubnetRouteTableAssociation
+  Properties:
+   SubnetId: !Ref PublicSubnet2
+   RouteTableId: !Ref RouteTable
+
+ MktPlaceSecurityGroup:
+  Type: 'AWS::EC2::SecurityGroup'
+  Properties:
+   GroupDescription: Enable SSH access via port 22 and HTTP from port 80
+   Tags:
+    - Key: Name
+      Value: MktPlaceSecurityGroup
+   SecurityGroupIngress:
+    - IpProtocol: tcp
+      FromPort: 22
+      ToPort: 22
+      CidrIp: 0.0.0.0/0 
+    - IpProtocol: tcp
+      FromPort: 80
+      ToPort: 80
+      CidrIp: 0.0.0.0/0
+   VpcId: !Ref MktPlaceVPC
+
+ Ec2Instance1:
+  Type: 'AWS::EC2::Instance'
+  Properties:
+   InstanceType: t2.micro
+   ImageId: ami-785c491f #This is Amazon RHEL image on Japan Region
+   KeyName: 'mkt_place'
+   Tags:
+    - Key: Name
+      Value: Automic Mkt place Instance 1
+   NetworkInterfaces:
+    - GroupSet:
+      - Ref: MktPlaceSecurityGroup
+      AssociatePublicIpAddress: 'true'
+      DeviceIndex: '0'
+      DeleteOnTermination: 'true'
+      SubnetId:
+        Ref: PublicSubnet1
+   UserData:
+    Fn::Base64:
+      Fn::Join:
+       - ''
+       - - "#!/bin/bash\n"
+         - "sudo apt-get update -y --fix-missing\n"
+         - "sudo apt-get install -y nginx\n"
+         - "sudo wget https://deb.nodesource.com/setup_8.x -O nodejs && sudo bash nodejs\n"
+         - "sudo apt-get install nodejs -y\n"
+         - "npm install -g pm2\n"
+         - |
+              cat << EOF > /etc/nginx/sites-available/default
+                server {
+                        listen 80;
+                        server_name _;
+                        server_tokens off;
+                        add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+                        add_header Content-Security-Policy "default-src 'self';";
+                        client_max_body_size 50M;
+                        location /cars {
+                        proxy_pass http://127.0.0.1:8000;
+                        }
+                        location /cars/api/v3 {
+                        proxy_pass http://127.0.0.1:8000;
+                        }
+                        location /property {
+                        proxy_pass http://127.0.0.1:3051;
+                        }
+                        location /property/api/v2 {
+                        proxy_pass http://127.0.0.1:3051;
+                        }
+                }
+              EOF
+         - |
+         - "sudo systemctl restart nginx"
+
+ Ec2Instance2:
+  Type: 'AWS::EC2::Instance'
+  Properties:
+   InstanceType: t2.micro
+   ImageId: ami-785c491f 
+   KeyName: 'mkt_place'
+   Tags:
+    - Key: Name
+      Value: Automic Mkt place Instance 2
+   NetworkInterfaces:
+    - GroupSet:
+      - Ref: MktPlaceSecurityGroup
+      AssociatePublicIpAddress: 'true'
+      DeviceIndex: '0'
+      DeleteOnTermination: 'true'
+      SubnetId:
+        Ref: PublicSubnet2
+   UserData:
+    Fn::Base64:
+      Fn::Join:
+       - ''
+       - - "#!/bin/bash\n"
+         - "sudo apt-get update -y --fix-missing\n"
+         - "sudo apt-get install -y nginx\n"
+         - "sudo wget https://deb.nodesource.com/setup_8.x -O nodejs && sudo bash nodejs\n"
+         - "sudo apt-get install nodejs -y\n"
+         - "npm install -g pm2\n"
+         - |
+              cat << EOF > /etc/nginx/sites-available/default
+                server {
+                        listen 80;
+                        server_name _;
+                        server_tokens off;
+                        add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+                        add_header Content-Security-Policy "default-src 'self';";
+                        client_max_body_size 50M;
+                        location /cars {
+                        proxy_pass http://127.0.0.1:8000;
+                        }
+                        location /cars/api/v3 {
+                        proxy_pass http://127.0.0.1:8000;
+                        }
+                        location /property {
+                        proxy_pass http://127.0.0.1:3051;
+                        }
+                        location /property/api/v2 {
+                        proxy_pass http://127.0.0.1:3051;
+                        }
+                }
+              EOF
+         - |
+         - "sudo systemctl restart nginx"
+
+ ELBSecurityGroup:
+  Type: AWS::EC2::SecurityGroup
+  Properties:
+   GroupDescription: Allow https 443 connection from PWEB
+   Tags:
+    - Key: Name
+      Value: AutomicElbSg
+   SecurityGroupIngress:
+    - IpProtocol: tcp
+      FromPort: '443'
+      ToPort: '443'
+      CidrIp: 0.0.0.0/0
+   SecurityGroupEgress:
+    - IpProtocol: '-1'
+      CidrIp: 0.0.0.0/0
+   VpcId: !Ref MktPlaceVPC
+
+ LoadBalancerProperty:
+  Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+  Properties:
+   Name: AutomicMktPlaceElbProperty
+   Subnets:
+    - Ref: PublicSubnet1
+    - Ref: PublicSubnet2
+   SecurityGroups: 
+    - !Ref ELBSecurityGroup
+   Tags: 
+    - Key: Name
+      Value: Automic Load Balancer Property
+
+ LoadBalancerListenerProperty:
+  Type: AWS::ElasticLoadBalancingV2::Listener
+  Properties:
+   LoadBalancerArn: !Ref LoadBalancerProperty
+   # CertificateArn: String  -- Uncomment and add the values
+   # Port: 443 -- Once Certificate Arn has been added uncomment this
+   # Protocol: HTTPS -- Uncomment once Certificate ARN has been added
+   Port: 80
+   Protocol: HTTP
+   DefaultActions: 
+    - Type: forward
+      TargetGroupArn: !Ref DefaultTargetGroupProperty
+
+ DefaultTargetGroupProperty:
+  Type: AWS::ElasticLoadBalancingV2::TargetGroup
+  Properties:
+   Name: PropertyTarget
+   VpcId: !Ref MktPlaceVPC
+   Port: 80
+   Protocol: HTTP
+   HealthCheckPath: '/property/api/v2/health-check'
+   TargetGroupAttributes:
+    - Key: deregistration_delay.timeout_seconds
+      Value: '20'
+   Targets:
+    - Id:
+        Ref: Ec2Instance1
+      Port: 80
+    - Id: 
+        Ref: Ec2Instance2
+      Port: 80
+
+ LoadBalancerCar:
+  Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+  Properties:
+   Name: AutomicMktPlaceElbCar
+   Subnets:
+    - Ref: PublicSubnet1
+    - Ref: PublicSubnet2
+   SecurityGroups: 
+    - !Ref ELBSecurityGroup
+   Tags: 
+    - Key: Name
+      Value: Automic Load Balancer Car
+
+ LoadBalancerListenerCar:
+  Type: AWS::ElasticLoadBalancingV2::Listener
+  Properties:
+   LoadBalancerArn: !Ref LoadBalancerCar
+   # CertificateArn: String  -- Uncomment and add the values
+   # Port: 443 -- Once Certificate Arn has been added uncomment this
+   # Protocol: HTTPS -- Uncomment once Certificate ARN has been added
+   Port: 80
+   Protocol: HTTP
+   DefaultActions: 
+    - Type: forward
+      TargetGroupArn: !Ref DefaultTargetGroupCar
+
+  # We define a default target group here, as this is a mandatory Parameters
+  # when creating an Application Load Balancer Listener. This is not used, instead
+  # a target group is created per-service in each service template (../services/*)
+
+ DefaultTargetGroupCar:
+  Type: AWS::ElasticLoadBalancingV2::TargetGroup
+  Properties:
+   Name: CarTarget
+   VpcId: !Ref MktPlaceVPC
+   Port: 80
+   Protocol: HTTP
+   HealthCheckPath: '/cars/api/v3/health-check'
+   TargetGroupAttributes:
+    - Key: deregistration_delay.timeout_seconds
+      Value: '20'
+   Targets:
+    - Id:
+        Ref: Ec2Instance1
+      Port: 80
+    - Id: 
+        Ref: Ec2Instance2
+      Port: 80
+
+ RedisParameterGroup:
+  Type: AWS::ElastiCache::ParameterGroup
+  Properties:
+   CacheParameterGroupFamily: redis3.2
+   Description: RedisParameterGroup
+
+ RedisSubnetGroup:
+  Type: AWS::ElastiCache::SubnetGroup
+  Properties:
+   Description: RedisSubnetGroup
+   SubnetIds:
+    - Ref: PublicSubnet1
+    - Ref: PublicSubnet2
+
+ RedisSecurityGroup:
+  Type: AWS::EC2::SecurityGroup
+  Properties:
+   GroupDescription: RedisSecurityGroup
+   Tags:
+    - Key: Name
+      Value: MktPlaceRedisSG
+   VpcId: !Ref MktPlaceVPC
+   SecurityGroupIngress:
+    - IpProtocol: tcp
+      FromPort: 6379
+      ToPort: 6379
+      CidrIp: 0.0.0.0/0
+    - IpProtocol: tcp
+      FromPort: 6379
+      ToPort: 6379
+      CidrIpv6: '::/0'
+
+ RedisReplicationGroup:
+  Type: AWS::ElastiCache::ReplicationGroup
+  Properties:
+   AutomaticFailoverEnabled: 'true'
+   CacheNodeType: 'cache.m3.medium'
+   CacheParameterGroupName:
+    Ref: RedisParameterGroup
+   CacheSubnetGroupName:
+    Ref: RedisSubnetGroup
+   Engine: redis
+   EngineVersion: 3.2.10
+   NumCacheClusters: '2'
+   ReplicationGroupDescription: RedisReplicationGroup
+   SecurityGroupIds:
+    - Ref: RedisSecurityGroup
+
+ VpcS3Endpoint:
+  Type: AWS::EC2::VPCEndpoint
+  Properties:
+   PolicyDocument:
+    Version: 2012-10-17
+    Statement:
+     - Effect: Allow
+       Principal: '*'
+       Action: '*'
+       Resource: '*'
+   ServiceName: 
+    !Join 
+     - ''
+     - - com.amazonaws.
+       - !Ref 'AWS::Region'
+       - .s3
+   RouteTableIds:
+    - !Ref RouteTable
+   VpcId: !Ref MktPlaceVPC
