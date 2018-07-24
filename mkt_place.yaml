@@ -6,7 +6,7 @@ Resources:
   Properties:
    CidrBlock: 10.0.0.0/16
    #EnableDnsSupport: 'yes'
-   #EnableDnsHostnames: 'yes'
+   EnableDnsHostnames: 'yes'
    #InstanceTenancy: dedicated
    Tags:
     - Key: Application
