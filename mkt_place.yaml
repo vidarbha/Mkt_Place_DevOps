@@ -109,7 +109,7 @@ Resources:
  Ec2Instance1:
   Type: 'AWS::EC2::Instance'
   Properties:
-   InstanceType: t2.micro
+   InstanceType: m3.medium
    ImageId: ami-785c491f #This is Amazon RHEL image on Japan Region
    KeyName: 'mkt_place'
    Tags:
@@ -162,7 +162,7 @@ Resources:
  Ec2Instance2:
   Type: 'AWS::EC2::Instance'
   Properties:
-   InstanceType: t2.micro
+   InstanceType: m3.medium
    ImageId: ami-785c491f 
    KeyName: 'mkt_place'
    Tags:
