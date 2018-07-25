@@ -35,7 +35,7 @@ Resources:
   Type: AWS::EC2::Subnet
   Properties:
    VpcId: !Ref MktPlaceVPC
-   AvailabilityZone: ap-northeast-1a
+   AvailabilityZone: ap-southeast-1a
    CidrBlock: 10.0.1.0/24
    Tags:
     - Key: Application
@@ -48,7 +48,7 @@ Resources:
   Type: AWS::EC2::Subnet
   Properties:
    VpcId: !Ref MktPlaceVPC
-   AvailabilityZone: ap-northeast-1c
+   AvailabilityZone: ap-southeast-1b
    CidrBlock: 10.0.2.0/24
    Tags:
     - Key: Application
@@ -99,18 +99,26 @@ Resources:
     - IpProtocol: tcp
       FromPort: 22
       ToPort: 22
-      CidrIp: 0.0.0.0/0 
+      CidrIp: 0.0.0.0/0
+    - IpProtocol: tcp
+      FromPort: 22
+      ToPort: 22
+      CidrIpv6: '::/0'
     - IpProtocol: tcp
       FromPort: 80
       ToPort: 80
       CidrIp: 0.0.0.0/0
+    - IpProtocol: tcp
+      FromPort: 80
+      ToPort: 80
+      CidrIpv6: '::/0'
    VpcId: !Ref MktPlaceVPC
 
  Ec2Instance1:
   Type: 'AWS::EC2::Instance'
   Properties:
-   InstanceType: m3.medium
-   ImageId: ami-785c491f #This is Amazon RHEL image on Japan Region
+   InstanceType: t2.micro
+   ImageId: ami-2378f540
    KeyName: 'mkt_place'
    Tags:
     - Key: Name
@@ -162,8 +170,8 @@ Resources:
  Ec2Instance2:
   Type: 'AWS::EC2::Instance'
   Properties:
-   InstanceType: m3.medium
-   ImageId: ami-785c491f 
+   InstanceType: t2.micro
+   ImageId: ami-2378f540 
    KeyName: 'mkt_place'
    Tags:
     - Key: Name
@@ -394,3 +402,25 @@ Resources:
    RouteTableIds:
     - !Ref RouteTable
    VpcId: !Ref MktPlaceVPC
+
+ # CarDNSRecord:
+  # Type: AWS::Route53::RecordSet
+  # Properties:
+   # HostedZoneName: palodevops.com.
+   # Comment: DNS name for my instance.
+   # Name: !Join ['', ['car', ., 'palodevops.com']]
+   # Type: CNAME
+   # TTL: '300'
+   # ResourceRecords:
+    # - !GetAtt LoadBalancerCar.DNSName
+
+ # PropertyDNSRecord:
+  # Type: AWS::Route53::RecordSet
+  # Properties:
+   # HostedZoneName: palodevops.com.
+   # Comment: DNS name for my instance.
+   # Name: !Join ['', ['property', ., 'palodevops.com']]
+   # Type: CNAME
+   # TTL: '300'
+   # ResourceRecords:
+    # - !GetAtt LoadBalancerProperty.DNSName
